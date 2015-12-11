@@ -17,6 +17,7 @@ class Topography {
     this.clicked_time = new Date();
     this.matching_lines = [];
     this.canvas.addEventListener('mousedown',this.mousedown.bind(this))
+    this.canvas.addEventListener('mouseup',this.mouseup.bind(this))
     this.canvas.addEventListener('mousemove',uR.dedribble(this.mousemove.bind(this),200,true))
     var controls = document.createElement("controls");
     document.body.appendChild(controls);
@@ -33,6 +34,45 @@ class Topography {
     l.x.push(l.x[0]);
     l.y.push(l.y[0]);
     this.draw();
+  }
+  mouseup(event) {
+    if (this.matching_lines.length && this.matching_lines[0] != this.clicked_line) {
+      this.joinLines(this.matching_lines[0],this.clicked_line);
+    }
+  }
+  joinLines(l1,l2) {
+    var aa = topo.math.dsq([l1.x[0],l1.y[0]],[l2.x[0],l2.y[0]]);
+    var ab = topo.math.dsq([l1.x[0],l1.y[0]],[l2.x[l2.length-1],l2.y[l2.length-1]]);
+    var ba = topo.math.dsq([l1.x[l1.length-1],l1.y[l1.length-1]],[l2.x[0],l2.y[0]]);
+    var bb = topo.math.dsq([l1.x[l1.length-1],l1.y[l1.length-1]],[l2.x[l2.length-1],l2.y[l2.length-1]]);
+    var min = Math.min(aa,ab,ba,bb);
+    if (min == aa) {
+      l1.x = l1.x.reverse().concat(l2.x);
+      l1.y = l1.y.reverse().concat(l2.y);
+    }
+    if (min == ab) {
+      l1.x = l2.x.concat(l1.x);
+      l1.y = l2.y.concat(l1.y);
+    }
+    if (min == ba) {
+      l1.x = l1.x.concat(l2.x);
+      l1.y = l1.y.concat(l2.y);
+    }
+    if (min == bb) {
+      l1.x = l1.x.concat(l2.x.reverse());
+      l1.y = l1.y.concat(l2.y.reverse());
+    }
+    this.deleteLine(l2);
+    this.draw();
+  }
+  deleteLine(l1) {
+    var that = this, found = false;
+    this.eachLine(function(l2,li) {
+      if (!found && l2.id == l1.id) {
+        that.lines.splice(li,1);
+        found = true;
+      }
+    })
   }
   mousemove(event) {
     var min_distance = Math.pow(4,2);
@@ -86,6 +126,7 @@ class Topography {
         line.x.push(pl[0][i]);
         line.y.push(pl[1][i]);
       }
+      line.length = line.x.length;
       this.lines.push(line);
     }
   }
@@ -105,7 +146,7 @@ class Topography {
   eachLine(func,lines) {
     lines = lines || this.lines;
     var result = [];
-    for (var li=0;li<lines.length;li++) { result.push(func(lines[li])); }
+    for (var li=0;li<lines.length;li++) { result.push(func(lines[li],li)); }
     return result;
   }
   filterLines(func,lines) {
