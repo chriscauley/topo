@@ -3,7 +3,7 @@
 
   <style scoped>
     :scope {
-      background: rgba(0,0,0,0.5);
+      background: rgba(255,255,255,0.8);
       border: 4px double black;
       min-height: 200px;
       position: fixed;
@@ -14,6 +14,10 @@
   </style>
 
   this.topography = this.opts.topography;
+  this.on("mount",function() {
+    this.root.appendChild(document.createElement("konsole"));
+    riot.mount("konsole");
+  });
   zoom(e) {
     var scale = this.topography.scale + 1;
     if (scale > 5) { scale = 1; }

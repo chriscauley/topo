@@ -1,10 +1,20 @@
 <html>
 <body style="background: #888;">
   <canvas style="padding-right: 208px;"></canvas>
+  <style>
+  canvas {
+   -moz-user-select: -moz-none;
+   -khtml-user-select: none;
+   -webkit-user-select: none;
+   -ms-user-select: none;
+   user-select: none;
+  }
+</style>
 </body>
 <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/riot/2.3/riot+compiler.min.js"></script>
 <script src="controls.tag" type="riot/tag"></script>
+<script src="unrest/konsole.tag" type="riot/tag"></script>
 <script src="unrest/unrest.js"></script>
 <script src="topo.js"></script>
 </html>

@@ -14,6 +14,8 @@ class Topography {
     this.scale = 1;
     this.rescale(1);
     this.draw();
+    this.clicked_time = new Date();
+    this.matching_lines = [];
     this.canvas.addEventListener('mousedown',this.mousedown.bind(this))
     this.canvas.addEventListener('mousemove',uR.dedribble(this.mousemove.bind(this),200,true))
     var controls = document.createElement("controls");
@@ -21,7 +23,16 @@ class Topography {
     riot.mount("controls",{topography:this});
   }
   mousedown(event) {
-    console.log(event);
+    if (this.matching_lines.length == 0) { return; }
+    if (new Date() - this.clicked_time > 1000) {
+      this.clicked_line = this.matching_lines[0];
+      this.clicked_time = new Date();
+      return
+    }
+    var l  = this.matching_lines[0];
+    l.x.push(l.x[0]);
+    l.y.push(l.y[0]);
+    this.draw();
   }
   mousemove(event) {
     var min_distance = Math.pow(4,2);
@@ -35,6 +46,10 @@ class Topography {
     uR.forEach(this.matching_lines || [],function(line) { line.stroke = 1; })
     uR.forEach(matching_lines,function(line) { line.stroke = 3; })
     this.matching_lines = matching_lines;
+    var line_nos = this.eachLine(function(line) {
+      return line.id
+    }, this.matching_lines)
+    konsole.watch('over lines',line_nos)
     this.draw();
   }
   draw() {
@@ -65,7 +80,7 @@ class Topography {
   resetData() {
     this.lines = [];
     for (var li=0;li<this.data.polylines.length;li++) {
-      var line = { x: [], y: [], color: "black", stroke: 1 };
+      var line = { x: [], y: [], color: "black", stroke: 1, id: li };
       var pl = this.data.polylines[li];
       for (var i=0;i<pl[0].length;i++) {
         line.x.push(pl[0][i]);
@@ -90,20 +105,20 @@ class Topography {
   eachLine(func,lines) {
     lines = lines || this.lines;
     var result = [];
-    for (var li=0;li<this.lines.length;li++) { result.push(func(this.lines[li])); }
+    for (var li=0;li<lines.length;li++) { result.push(func(lines[li])); }
     return result;
   }
   filterLines(func,lines) {
     lines = lines || this.lines;
     var result = [];
-    for (var li=0;li<this.lines.length;li++) {
-      if (func(this.lines[li])) { result.push(this.lines[li]) }
+    for (var li=0;li<lines.length;li++) {
+      if (func(lines[li])) { result.push(lines[li]) }
     }
     return result;
   }
   findLine(func,lines) { 
     lines = lines || this.lines;
-    for (var li=0;li<this.lines.length;li++) { if (func(this.lines[li])) { return this.lines[li] } }
+    for (var li=0;li<lines.length;li++) { if (func(lines[li])) { return lines[li] } }
   }
 }
 $(function() {
