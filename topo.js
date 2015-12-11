@@ -7,17 +7,18 @@ topo.math = {
 
 class Topography {
   constructor(data) {
-    var canvas = document.querySelector("canvas");
-    this.width = canvas.width = data.x_max+1;
-    this.height = canvas.height = data.y_max+1;
-    this.context = canvas.getContext("2d");
+    this.canvas = document.querySelector("canvas");
+    this.context = this.canvas.getContext("2d");
     this.data = data;
     this.resetData();
     this.scale = 1;
     this.rescale(1);
     this.draw();
-    canvas.addEventListener('mousedown',this.mousedown.bind(this))
-    canvas.addEventListener('mousemove',uR.dedribble(this.mousemove.bind(this),200,true))
+    this.canvas.addEventListener('mousedown',this.mousedown.bind(this))
+    this.canvas.addEventListener('mousemove',uR.dedribble(this.mousemove.bind(this),200,true))
+    var controls = document.createElement("controls");
+    document.body.appendChild(controls);
+    riot.mount("controls",{topography:this});
   }
   mousedown(event) {
     console.log(event);
@@ -75,9 +76,11 @@ class Topography {
   }
   rescale(newscale) {
     var that = this;
+    this.width = this.canvas.width = newscale*this.data.x_max+1;
+    this.height = this.canvas.height = newscale*this.data.y_max+1;
     if (this.scale == newscale) { return }
     this.eachLine(function(line) {
-      for (var i=1;i<line.x.length;i++) {
+      for (var i=0;i<line.x.length;i++) {
         line.x[i] = line.x[i]*newscale/that.scale;
         line.y[i] = line.y[i]*newscale/that.scale;
       }
