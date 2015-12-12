@@ -3,25 +3,42 @@ var topo = {};
 topo.math = {
   dsq: function(xy1,xy2) { return Math.pow(xy1[0]-xy2[0],2) + Math.pow(xy1[1]-xy2[1],2); },
   d: function(xy1,xy2) { return Math.sqrt(Math.pow(xy1[0]-xy2[0],2) + Math.pow(xy1[1]-xy2[1],2)); },
+  polyline_contains_point: function(line,point) {
+    // line is currently {x:[],y:[]} point is [x,y] :(
+    var x = point[0], y = point[1];
+    var inside = false;
+    for (var i = 0, j = line.length - 1; i < line.length; j = i++) {
+        var xi = line.x[i], yi = line.y[i];
+        var xj = line.x[j], yj = line.y[j];
+
+        var intersect = ((yi > y) != (yj > y))
+            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+
+    return inside;
+  },
 }
 
 class Topography {
   constructor(data) {
     this.canvas = document.querySelector("canvas");
     this.context = this.canvas.getContext("2d");
+    var controls = document.createElement("controls");
+    document.body.appendChild(controls);
+    riot.mount("controls",{topography:this});
     this.data = data;
     this.resetData();
     this.scale = 1;
     this.rescale(1);
+    this.dots = [];
+    this.colorLines();
     this.draw();
     this.clicked_time = new Date();
     this.matching_lines = [];
     this.canvas.addEventListener('mousedown',this.mousedown.bind(this))
     this.canvas.addEventListener('mouseup',this.mouseup.bind(this))
     this.canvas.addEventListener('mousemove',uR.dedribble(this.mousemove.bind(this),200,true))
-    var controls = document.createElement("controls");
-    document.body.appendChild(controls);
-    riot.mount("controls",{topography:this});
   }
   mousedown(event) {
     if (this.matching_lines.length == 0) { return; }
@@ -33,11 +50,11 @@ class Topography {
     var l  = this.matching_lines[0];
     l.x.push(l.x[0]);
     l.y.push(l.y[0]);
-    this.draw();
   }
   mouseup(event) {
     if (this.matching_lines.length && this.matching_lines[0] != this.clicked_line) {
       this.joinLines(this.matching_lines[0],this.clicked_line);
+      this.colorLines();
     }
   }
   joinLines(l1,l2) {
@@ -74,6 +91,26 @@ class Topography {
       }
     })
   }
+  addDots() {
+    var that = this;
+    that.dots = [];
+    var shift = 2;
+    var total = 0;
+    this.eachLine(function(line) {
+      if (!line.closed) { return }
+      var pi = Math.floor(Math.random()*line.length);
+      var tries = 10;
+      while (--tries) { 
+        var dot = [line.x[pi]+tries/2*(Math.random()-0.5),line.y[pi]+tries/2*(Math.random()-0.5)];
+        if (topo.math.polyline_contains_point(line,dot)) {
+          that.dots.push(dot);
+          break
+        }
+        total += 10-tries;
+      }
+    });
+    setTimeout(function(){konsole.watch('tries/dot',(total/that.lines.length).toFixed(2))},2000)
+  }
   mousemove(event) {
     var min_distance = Math.pow(4,2);
     var mousexy = [event.layerX,event.layerY];
@@ -95,6 +132,26 @@ class Topography {
   draw() {
     this.context.clearRect(0,0,this.width,this.height);
     var ci=0;
+    var that = this;
+    this.eachLine(function(line) {
+      that.context.beginPath();
+      that.context.moveTo(line.x[0],line.y[0]);
+      for (var i=1;i<line.x.length;i++) { that.context.lineTo(line.x[i],line.y[i]); }
+      that.context.strokeStyle = line.color;
+      that.context.lineWidth = line.stroke || 1;
+      that.context.stroke();
+    })
+    that.context.strokeStyle = 'red';
+    that.context.lineWidth = 1;
+    uR.forEach(this.dots,(function(dot){
+      this.context.beginPath();
+      this.context.arc(dot[0], dot[1], 2, 0, 2 * Math.PI, false);
+      this.context.fillStyle = 'green';
+      this.context.fill();
+      this.context.stroke();
+    }).bind(this));
+  }
+  colorLines() {
     var colors = [
       '#f88',
       '#8f8',
@@ -103,19 +160,18 @@ class Topography {
       '#f8f',
       '#8ff',
     ];
-    var that = this;
+    var ci = -1;
     this.eachLine(function(line) {
-      that.context.beginPath();
-      that.context.moveTo(line.x[0],line.y[0]);
-      for (var i=1;i<line.x.length;i++) { that.context.lineTo(line.x[i],line.y[i]); }
-      that.context.strokeStyle = 'black'
-      that.context.lineWidth = line.stroke || 1;
-      if (!(line.x[0] == line.x[line.x.length-1] && line.y[0] == line.y[line.y.length-1])) {
-        that.context.strokeStyle = colors[ci++];
-        if (ci == colors.length) { ci = 0; }
+      if (line.x[0] == line.x[line.x.length-1] && line.y[0] == line.y[line.y.length-1]) {
+        line.color = 'black';
+        line.closed = true;
+      } else { 
+        line.color = colors[ci++];
+        if (ci == colors.length - 1) { ci = 0; }
+        line.closed = false;
       };
-      that.context.stroke();
-    })
+    });
+    this.addDots();
   }
   resetData() {
     this.lines = [];
@@ -140,6 +196,10 @@ class Topography {
         line.x[i] = line.x[i]*newscale/that.scale;
         line.y[i] = line.y[i]*newscale/that.scale;
       }
+    });
+    uR.forEach(this.dots,function(dot) {
+      dot[0] = dot[0]*newscale/that.scale;
+      dot[1] = dot[1]*newscale/that.scale;
     });
     this.scale = newscale;
   }
