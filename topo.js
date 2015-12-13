@@ -32,13 +32,18 @@ class Topography {
     this.scale = 1;
     this.rescale(1);
     this.dots = [];
-    this.colorLines();
-    this.draw();
+    this.updateLines();
     this.clicked_time = new Date();
     this.matching_lines = [];
     this.canvas.addEventListener('mousedown',this.mousedown.bind(this))
     this.canvas.addEventListener('mouseup',this.mouseup.bind(this))
     this.canvas.addEventListener('mousemove',uR.dedribble(this.mousemove.bind(this),200,true))
+  }
+  updateLines() {
+    this.closeLines();
+    this.colorLines();
+    this.addDots();
+    this.draw();
   }
   mousedown(event) {
     if (this.matching_lines.length == 0) { return; }
@@ -50,11 +55,12 @@ class Topography {
     var l  = this.matching_lines[0];
     l.x.push(l.x[0]);
     l.y.push(l.y[0]);
+    this.updateLines()
   }
   mouseup(event) {
     if (this.matching_lines.length && this.matching_lines[0] != this.clicked_line) {
       this.joinLines(this.matching_lines[0],this.clicked_line);
-      this.colorLines();
+      this.updateLines();
     }
   }
   joinLines(l1,l2) {
@@ -80,7 +86,6 @@ class Topography {
       l1.y = l1.y.concat(l2.y.reverse());
     }
     this.deleteLine(l2);
-    this.draw();
   }
   deleteLine(l1) {
     var that = this, found = false;
@@ -93,23 +98,25 @@ class Topography {
   }
   addDots() {
     var that = this;
-    that.dots = [];
     var shift = 2;
+    var made = 0;
     var total = 0;
     this.eachLine(function(line) {
-      if (!line.closed) { return }
+      if (!line.closed || line.contains_dots) { return };
       var pi = Math.floor(Math.random()*line.length);
       var tries = 10;
       while (--tries) { 
         var dot = [line.x[pi]+tries/2*(Math.random()-0.5),line.y[pi]+tries/2*(Math.random()-0.5)];
         if (topo.math.polyline_contains_point(line,dot)) {
+          line.contains_dots = [dot];
           that.dots.push(dot);
+          made += 1
           break
         }
         total += 10-tries;
       }
     });
-    setTimeout(function(){konsole.watch('tries/dot',(total/that.lines.length).toFixed(2))},2000)
+    setTimeout(function(){konsole.log((total/made).toFixed(2) + "tries/line")},2000)
   }
   mousemove(event) {
     var min_distance = Math.pow(4,2);
@@ -151,32 +158,33 @@ class Topography {
       this.context.stroke();
     }).bind(this));
   }
-  colorLines() {
-    var colors = [
-      '#f88',
-      '#8f8',
-      '#aaf',
-      '#ff8',
-      '#f8f',
-      '#8ff',
-    ];
-    var ci = -1;
+  closeLines() {
     this.eachLine(function(line) {
       if (line.x[0] == line.x[line.x.length-1] && line.y[0] == line.y[line.y.length-1]) {
-        line.color = 'black';
         line.closed = true;
       } else { 
-        line.color = colors[ci++];
-        if (ci == colors.length - 1) { ci = 0; }
         line.closed = false;
       };
     });
-    this.addDots();
+  }    
+  colorLines() {
+    var colors = [
+      '#f88','#8f8','#aaf',
+      '#ff8','#f8f','#8ff',
+    ];
+    var ci = -1;
+    this.eachLine(function(line) {
+      if (line.closed) { line.color = 'black'; }
+      else {
+        line.color = line.color || colors[ci++];
+        if (ci == colors.length - 1) { ci = 0; }
+      }
+    });
   }
   resetData() {
     this.lines = [];
     for (var li=0;li<this.data.polylines.length;li++) {
-      var line = { x: [], y: [], color: "black", stroke: 1, id: li };
+      var line = { x: [], y: [], stroke: 1, id: li };
       var pl = this.data.polylines[li];
       for (var i=0;i<pl[0].length;i++) {
         line.x.push(pl[0][i]);
