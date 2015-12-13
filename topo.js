@@ -43,6 +43,7 @@ class Topography {
     this.closeLines();
     this.colorLines();
     this.addDots();
+    this.checkDots();
     this.draw();
   }
   mousedown(event) {
@@ -99,42 +100,70 @@ class Topography {
   addDots() {
     var that = this;
     var shift = 2;
-    var made = 0;
-    var total = 0;
+    var new_dots = 0;
+    var total_tries = 0;
     this.eachLine(function(line) {
       if (!line.closed || line.contains_dots) { return };
       var pi = Math.floor(Math.random()*line.length);
-      var tries = 10;
+      var tries = 20;
       while (--tries) { 
-        var dot = [line.x[pi]+tries/2*(Math.random()-0.5),line.y[pi]+tries/2*(Math.random()-0.5)];
+        var dot = [line.x[pi]+tries/4*(Math.random()-0.5),line.y[pi]+tries/4*(Math.random()-0.5)];
         if (topo.math.polyline_contains_point(line,dot)) {
           line.contains_dots = [dot];
           that.dots.push(dot);
-          made += 1
+          new_dots += 1
+          line.tries = 20-tries;
+          total_tries += 20-tries;
           break
         }
-        total += 10-tries;
       }
     });
-    setTimeout(function(){konsole.log((total/made).toFixed(2) + "tries/line")},2000)
+    if (new_dots) {
+      setTimeout(function(){konsole.log((total_tries/new_dots).toFixed(2) + "tries/line")},2000)
+    }
+  }
+  checkDots() {
+    var that = this;
+    this.eachLine(function(line) {
+      uR.forEach(that.dots,function(dot) {
+        if (!line.closed || !line.contains_dots || line.contains_dots.indexOf(dot) != -1) { return }
+        if (topo.math.polyline_contains_point(line,dot)) {
+          line.contains_dots.push(dot);
+        };
+      });
+    });
   }
   mousemove(event) {
-    var min_distance = Math.pow(4,2);
     var mousexy = [event.layerX,event.layerY];
+    this.collideDots(mousexy);
+    this.collideLines(mousexy);
+    this.dashLines();
+    this.draw();
+  }
+  collideLines(mousexy) { 
+    var min_distance = Math.pow(4,2);
     var matching_lines = this.filterLines(function(line) {
       for (var i=0; i<line.x.length; i++) {
         if (topo.math.dsq([line.x[i],line.y[i]],mousexy) < min_distance) { return true; }
       }
     });
-    if (matching_lines == this.matching_lines) { return; }
-    uR.forEach(this.matching_lines || [],function(line) { line.stroke = 1; })
-    uR.forEach(matching_lines,function(line) { line.stroke = 3; })
-    this.matching_lines = matching_lines;
-    var line_nos = this.eachLine(function(line) {
-      return line.id
-    }, this.matching_lines)
-    konsole.watch('over lines',line_nos)
-    this.draw();
+    if (matching_lines != this.matching_lines) {
+      uR.forEach(this.matching_lines || [],function(line) { line.stroke = 1; })
+      uR.forEach(matching_lines,function(line) { line.stroke = 3; })
+      this.matching_lines = matching_lines;
+      var line_nos = this.eachLine(function(line) {
+        return line.id
+      }, this.matching_lines)
+      konsole.watch('over lines',line_nos)
+    }
+  }
+  collideDots(mousexy) {
+    var that = this;
+    this.matched_dot = undefined;
+    var min_distance = Math.pow(5,2);
+    uR.forEach(this.dots, function(dot) { 
+      if (topo.math.dsq(mousexy,dot) < min_distance) { that.matched_dot = dot; }
+    });
   }
   draw() {
     this.context.clearRect(0,0,this.width,this.height);
@@ -143,6 +172,7 @@ class Topography {
     this.eachLine(function(line) {
       that.context.beginPath();
       that.context.moveTo(line.x[0],line.y[0]);
+      that.context.setLineDash(line.dashed?[10,5]:[]);
       for (var i=1;i<line.x.length;i++) { that.context.lineTo(line.x[i],line.y[i]); }
       that.context.strokeStyle = line.color;
       that.context.lineWidth = line.stroke || 1;
@@ -150,13 +180,14 @@ class Topography {
     })
     that.context.strokeStyle = 'red';
     that.context.lineWidth = 1;
-    uR.forEach(this.dots,(function(dot){
-      this.context.beginPath();
-      this.context.arc(dot[0], dot[1], 2, 0, 2 * Math.PI, false);
-      this.context.fillStyle = 'green';
-      this.context.fill();
-      this.context.stroke();
-    }).bind(this));
+    uR.forEach(this.dots,function(dot){
+      var radius = (that.matched_dot == dot)?5:2;
+      that.context.beginPath();
+      that.context.arc(dot[0], dot[1], radius, 0, 2 * Math.PI, false);
+      that.context.fillStyle = 'green';
+      that.context.fill();
+      that.context.stroke();
+    });
   }
   closeLines() {
     this.eachLine(function(line) {
@@ -179,6 +210,12 @@ class Topography {
         line.color = line.color || colors[ci++];
         if (ci == colors.length - 1) { ci = 0; }
       }
+    });
+  }
+  dashLines() {
+    var that = this;
+    this.eachLine(function(line) {
+      line.dashed = line.contains_dots && line.contains_dots.indexOf(that.matched_dot) != -1;
     });
   }
   resetData() {
