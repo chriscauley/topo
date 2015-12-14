@@ -124,14 +124,18 @@ class Topography {
   }
   checkDots() {
     var that = this;
+    var checked = 0, found = 0;
     this.eachLine(function(line) {
       uR.forEach(that.dots,function(dot) {
         if (!line.closed || !line.contains_dots || line.contains_dots.indexOf(dot) != -1) { return }
         if (topo.math.polyline_contains_point(line,dot)) {
           line.contains_dots.push(dot);
+          found += 1;
         };
+        checked += 1;
       });
     });
+    console.log("checked: "+checked+"    found:" + found)
   }
   mousemove(event) {
     var mousexy = [event.layerX,event.layerY];
@@ -155,6 +159,13 @@ class Topography {
         return line.id
       }, this.matching_lines)
       konsole.watch('over lines',line_nos)
+      if (this.matching_lines.length) {
+        konsole.watch('line points',this.matching_lines[0].x.length)
+      }
+    }
+    this.matched_line_dot = undefined;
+    if (this.matching_lines.length && this.matching_lines[0].contains_dots) {
+      this.matched_line_dot = this.matching_lines[0].contains_dots[0];
     }
   }
   collideDots(mousexy) {
@@ -166,27 +177,32 @@ class Topography {
     });
   }
   draw() {
+    var context = this.context, matched_dot = this.matched_dot, that = this;
     this.context.clearRect(0,0,this.width,this.height);
     var ci=0;
-    var that = this;
     this.eachLine(function(line) {
-      that.context.beginPath();
-      that.context.moveTo(line.x[0],line.y[0]);
-      that.context.setLineDash(line.dashed?[10,5]:[]);
-      for (var i=1;i<line.x.length;i++) { that.context.lineTo(line.x[i],line.y[i]); }
-      that.context.strokeStyle = line.color;
-      that.context.lineWidth = line.stroke || 1;
-      that.context.stroke();
+      context.beginPath();
+      context.moveTo(line.x[0],line.y[0]);
+      context.setLineDash(line.dashed?[10,5]:[]);
+      for (var i=1;i<line.x.length;i++) { context.lineTo(line.x[i],line.y[i]); }
+      context.strokeStyle = line.color;
+      if (line.contains_dots && line.contains_dots[0] == matched_dot) { context.strokeStyle="white"; }
+      context.lineWidth = line.stroke || 1;
+      context.stroke();
     })
-    that.context.strokeStyle = 'red';
-    that.context.lineWidth = 1;
+    context.strokeStyle = 'red';
+    context.lineWidth = 1;
     uR.forEach(this.dots,function(dot){
-      var radius = (that.matched_dot == dot)?5:2;
-      that.context.beginPath();
-      that.context.arc(dot[0], dot[1], radius, 0, 2 * Math.PI, false);
-      that.context.fillStyle = 'green';
-      that.context.fill();
-      that.context.stroke();
+      var radius = (matched_dot == dot)?5:2;
+      context.beginPath();
+      context.fillStyle = 'green';
+      if (that.matched_line_dot == dot) {
+        radius = 10;
+        context.fillStyle = 'white';
+      }
+      context.arc(dot[0], dot[1], radius, 0, 2 * Math.PI, false);
+      context.fill();
+      context.stroke();
     });
   }
   closeLines() {
